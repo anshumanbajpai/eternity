@@ -11,4 +11,5 @@ public class Config {
     public static final String REQUEST_STRING = "ping";
     public static final Proxy PROXY = null;
     public static final boolean INVALIDATE_SESSION = false;
+    public static final String HTTP_ENDPOINT = "http://www.google.com";
 }

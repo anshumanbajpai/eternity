@@ -1,10 +1,16 @@
 package to.talk.eternity;
 
 import android.app.Activity;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
+import android.util.Log;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.loopj.android.http.AsyncHttpClient;
+import com.loopj.android.http.TextHttpResponseHandler;
+import org.apache.http.Header;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -13,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 public class MainActivity extends Activity {
 
     private final ScheduledExecutorService _executor = Executors.newSingleThreadScheduledExecutor();
+    private final static String LOGTAG = MainActivity.class.getSimpleName();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,14 +38,60 @@ public class MainActivity extends Activity {
         Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>() {
             @Override
             public void onSuccess(ConnectionMetric connectionMetric) {
-
+                Log.d(LOGTAG, "Door connected");
             }
 
             @Override
             public void onFailure(Throwable throwable) {
 
+                Log.d(LOGTAG, "Door connection failed : " + throwable);
+                Log.d(LOGTAG, "N/w status : " + isConnected());
 
+                if (isConnected()) {
+
+                    Futures.addCallback(makeHttpRequest(), new FutureCallback<Void>() {
+                        @Override
+                        public void onSuccess(Void o) {
+                            Log.d(LOGTAG, "Http request succeeds ");
+                            // App  has reached the state where its unable to connect to door despite of connectivity and http requests are working.
+
+                        }
+
+                        @Override
+                        public void onFailure(Throwable throwable) {
+                            Log.d(LOGTAG, "Http request fails : " + throwable);
+                        }
+                    });
+                }
             }
         });
+    }
+
+    private ListenableFuture<Void> makeHttpRequest() {
+
+        final SettableFuture<Void> future = SettableFuture.create();
+        AsyncHttpClient asyncHttpClient = new AsyncHttpClient();
+
+        asyncHttpClient.get(getApplicationContext(), Config.HTTP_ENDPOINT, new TextHttpResponseHandler() {
+
+            @Override
+            public void onFailure(int statusCode, Header[] headers, String responseBody, Throwable error) {
+                super.onFailure(statusCode, headers, responseBody, error);
+                future.setException(error);
+            }
+
+            @Override
+            public void onSuccess(int statusCode, Header[] headers, String responseBody) {
+                super.onSuccess(statusCode, headers, responseBody);
+                future.set(null);
+            }
+
+        });
+        return future;
+    }
+
+    private boolean isConnected() {
+        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        return connectivityManager != null && connectivityManager.getActiveNetworkInfo() != null && connectivityManager.getActiveNetworkInfo().isConnected();
     }
 }
