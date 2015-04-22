@@ -1,6 +1,8 @@
 package to.talk.eternity;
 
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.content.Context;
 import android.net.ConnectivityManager;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,6 +14,7 @@ import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.TextHttpResponseHandler;
 import org.apache.http.Header;
 
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -20,6 +23,7 @@ public class MainActivity extends Activity {
 
     private final ScheduledExecutorService _executor = Executors.newSingleThreadScheduledExecutor();
     private final static String LOGTAG = MainActivity.class.getSimpleName();
+    private final static String WHATSAPP_PACKAGE = "com.whatsapp";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +58,12 @@ public class MainActivity extends Activity {
                         public void onSuccess(Void o) {
                             Log.d(LOGTAG, "Http request succeeds ");
                             // App  has reached the state where its unable to connect to door despite of connectivity and http requests are working.
+                            int pid = getWhatsappPid();
+                            Log.d(LOGTAG, "Whatsapp Pid : " + pid);
+                            //kill the whatsapp process, needs root permission
+                            if (pid != -1) {
+                                android.os.Process.killProcess(pid);
+                            }
 
                         }
 
@@ -88,6 +98,22 @@ public class MainActivity extends Activity {
 
         });
         return future;
+    }
+
+    private int getWhatsappPid() {
+
+        int pid = -1;
+        ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningAppProcessInfo> pidsTask = activityManager.getRunningAppProcesses();
+
+        for (int i = 0; i < pidsTask.size(); i++) {
+            if (WHATSAPP_PACKAGE.equals(pidsTask.get(i).processName)) {
+                pid = pidsTask.get(i).pid;
+                break;
+            }
+        }
+
+        return pid;
     }
 
     private boolean isConnected() {
