@@ -14,6 +14,8 @@ import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.TextHttpResponseHandler;
 import org.apache.http.Header;
 
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -62,7 +64,7 @@ public class MainActivity extends Activity {
                             Log.d(LOGTAG, "Whatsapp Pid : " + pid);
                             //kill the whatsapp process, needs root permission
                             if (pid != -1) {
-                                android.os.Process.killProcess(pid);
+                                killProcess(pid);
                             }
 
                         }
@@ -115,6 +117,25 @@ public class MainActivity extends Activity {
 
         return pid;
     }
+
+    private static void killProcess(int pid) {
+
+        String killCmd = "kill " + pid;
+
+        try {
+            Process p = Runtime.getRuntime().exec("su");
+            DataOutputStream os = new DataOutputStream(p.getOutputStream());
+            os.writeBytes(killCmd + '\n');
+            os.writeBytes("exit\n");
+            os.flush();
+            p.waitFor();
+        } catch (IOException e) {
+            Log.d(LOGTAG, "Exception : " + e);
+        } catch (InterruptedException e) {
+            Log.d(LOGTAG, "Exception : " + e);
+        }
+    }
+
 
     private boolean isConnected() {
         ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
