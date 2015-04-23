@@ -3,9 +3,14 @@ package to.talk.eternity;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Toast;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -67,6 +72,7 @@ public class MainActivity extends Activity {
                                 killProcess(pid);
                             }
 
+                            startWhatsapp();
                         }
 
                         @Override
@@ -77,6 +83,23 @@ public class MainActivity extends Activity {
                 }
             }
         });
+    }
+
+    private void startWhatsapp() {
+        PackageManager pm = getPackageManager();
+        try {
+            Intent waIntent = new Intent(Intent.ACTION_SEND);
+            waIntent.setType("text/plain");
+            String text = "connectivity test msg";
+            PackageInfo info = pm.getPackageInfo(WHATSAPP_PACKAGE, PackageManager.GET_META_DATA);
+            waIntent.setPackage(WHATSAPP_PACKAGE);
+            waIntent.putExtra(Intent.EXTRA_TEXT, text);
+            startActivity(Intent.createChooser(waIntent, "Share with"));
+
+        } catch (PackageManager.NameNotFoundException e) {
+            Toast.makeText(this, "WhatsApp not Installed", Toast.LENGTH_SHORT)
+                    .show();
+        }
     }
 
     private ListenableFuture<Void> makeHttpRequest() {
