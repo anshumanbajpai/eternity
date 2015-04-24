@@ -6,8 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.net.ConnectivityManager;
-import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
@@ -19,8 +19,7 @@ import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.TextHttpResponseHandler;
 import org.apache.http.Header;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -35,6 +34,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        copyTcpDumpFile();
         _executor.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
@@ -69,10 +69,24 @@ public class MainActivity extends Activity {
                             Log.d(LOGTAG, "Whatsapp Pid : " + pid);
                             //kill the whatsapp process, needs root permission
                             if (pid != -1) {
+                                Log.d(LOGTAG, "killing whatsapp");
                                 killProcess(pid);
                             }
 
+                            Log.d(LOGTAG, "starting tcpdump");
+                            final Process tcpDumpProcess = startTcpDump();
+                            Log.d(LOGTAG, "starting whatsapp");
                             startWhatsapp();
+                            _executor.schedule(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Log.d(LOGTAG, "terminating tcpdump process");
+                                    if (tcpDumpProcess != null) {
+                                        tcpDumpProcess.destroy();
+                                    }
+                                }
+                            }, 30, TimeUnit.SECONDS);
+
                         }
 
                         @Override
@@ -83,6 +97,26 @@ public class MainActivity extends Activity {
                 }
             }
         });
+    }
+
+    private static Process startTcpDump() {
+
+        Process p = null;
+        try {
+            p = Runtime.getRuntime().exec("su");
+            DataOutputStream os = new DataOutputStream(p.getOutputStream());
+            os.writeBytes("mount -o remount,rw /system\n");
+            os.writeBytes("cp /sdcard/Android/data/to.talk.eternity/files/tcpdump system/bin\n");
+            os.writeBytes("chmod 777 system/bin/tcpdump\n");
+            os.writeBytes("mount -o remount,ro /system\n");
+            os.writeBytes("/system/bin/tcpdump -vv -s 0 -w /sdcard/tcplogs.cap\n");
+            os.writeBytes("exit\n");
+            os.flush();
+        } catch (IOException e) {
+            Log.e(LOGTAG, "Ex : " + e);
+        }
+
+        return p;
     }
 
     private void startWhatsapp() {
@@ -163,5 +197,53 @@ public class MainActivity extends Activity {
     private boolean isConnected() {
         ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         return connectivityManager != null && connectivityManager.getActiveNetworkInfo() != null && connectivityManager.getActiveNetworkInfo().isConnected();
+    }
+
+    private void copyTcpDumpFile() {
+        AssetManager assetManager = getAssets();
+        String[] files = null;
+        try {
+            files = assetManager.list("");
+        } catch (IOException e) {
+            Log.e(LOGTAG, "Failed to get asset file list.", e);
+        }
+        for (String filename : files) {
+
+            if ("tcpdump".equalsIgnoreCase(filename)) {
+                InputStream in = null;
+                OutputStream out = null;
+                try {
+                    in = assetManager.open(filename);
+                    File outFile = new File(getExternalFilesDir(null), filename);
+                    out = new FileOutputStream(outFile);
+                    copyFile(in, out);
+                } catch (IOException e) {
+                    Log.e(LOGTAG, "Failed to copy asset file: " + filename, e);
+                } finally {
+                    if (in != null) {
+                        try {
+                            in.close();
+                        } catch (IOException e) {
+                            Log.e(LOGTAG, "Io ex : " + e);
+                        }
+                    }
+                    if (out != null) {
+                        try {
+                            out.close();
+                        } catch (IOException e) {
+                            Log.e(LOGTAG, "Io ex : " + e);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void copyFile(InputStream in, OutputStream out) throws IOException {
+        byte[] buffer = new byte[1024];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
     }
 }
