@@ -105,7 +105,7 @@ public class MainActivity extends Activity
                             }
 
                             Log.d(LOGTAG, "starting tcpdump");
-                            final Process tcpDumpProcess = startTcpDump();
+                            final Process tcpDumpProcess = startTcpDump(new Date().toString());
                             Log.d(LOGTAG, "starting whatsapp");
                             startWhatsapp();
                             _executor.schedule(new Runnable()
@@ -137,7 +137,7 @@ public class MainActivity extends Activity
             @Override
             public void onClick(View v)
             {
-                _tcpDumpProcess = startTcpDump();
+                _tcpDumpProcess = startTcpDump("tcpdump_" + new Date().toString());
             }
         });
 
@@ -151,7 +151,7 @@ public class MainActivity extends Activity
         });
     }
 
-    private static Process startTcpDump()
+    private static Process startTcpDump(String captureFileName)
     {
 
         Process p = null;
@@ -162,9 +162,8 @@ public class MainActivity extends Activity
             os.writeBytes("cp /sdcard/Android/data/to.talk.eternity/files/tcpdump system/bin\n");
             os.writeBytes("chmod 777 system/bin/tcpdump\n");
             os.writeBytes("mount -o remount,ro /system\n");
-            os.writeBytes(
-                "/system/bin/tcpdump -vv -s 0 -w /sdcard/tcpdump_" + (new Date().toString()) +
-                ".cap\n");
+            os.writeBytes("/system/bin/tcpdump -vv -s 0 -w /sdcard/" + captureFileName +
+                          ".cap\n");
             os.writeBytes("exit\n");
             os.flush();
         } catch (IOException e) {
