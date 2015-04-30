@@ -26,9 +26,11 @@ import com.loopj.android.http.TextHttpResponseHandler;
 
 import org.apache.http.Header;
 
+import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -50,6 +52,9 @@ public class MainActivity extends Activity
 
     private final static String LOGTAG = MainActivity.class.getSimpleName();
     private final static String WHATSAPP_PACKAGE = "com.whatsapp";
+    private static final String NETWORK_DETAILS_FILENAME = "network-details.txt";
+    private final static String ETERNITY_DIR =
+        Environment.getExternalStorageDirectory() + "/eternity/";
     private final ScheduledExecutorService _executor = Executors.newSingleThreadScheduledExecutor();
     private Button _startCaptureBtn;
     private Button _stopCaptureBtn;
@@ -140,6 +145,7 @@ public class MainActivity extends Activity
 
     private void startDebugging()
     {
+        logDeviceInfo(null);
         killWhatsapp();
         phoneCallToAlert();
         Log.d(LOGTAG, "starting tcpdump");
@@ -160,10 +166,31 @@ public class MainActivity extends Activity
 
     private void logDeviceInfo(ConnectionMetric connectionMetric)
     {
-        Log.d(LOGTAG, "connection metric: " + connectionMetric == null ? "null" : connectionMetric
-            .toString());
-        Log.d(LOGTAG, "dns servers: ");
+        File directory = new File(ETERNITY_DIR);
+        directory.mkdirs();
+        File logFile = new File(ETERNITY_DIR + NETWORK_DETAILS_FILENAME);
         ArrayList<String> dnsServers = NetworkUtil.getDNSServers();
+        try {
+            BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM HH:mm:ss:SSS");
+            if (connectionMetric != null) {
+                appendToBuffer(buf, sdf, "connection metric: " + connectionMetric.toString());
+                Log.d(LOGTAG, "connection metric: " + connectionMetric.toString());
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.append("DNS servers: ");
+            for (String s : dnsServers) {
+                sb.append(s + " ");
+            }
+            appendToBuffer(buf, sdf, sb.toString());
+            appendToBuffer(buf, sdf, "proxy host: " + NetworkUtil.getProxyHost() + " ,port: " +
+                                     NetworkUtil.getProxyPort());
+            appendToBuffer(buf, sdf, "custom network info: " + NetworkUtil.getNetworkInfo(this));
+            buf.close();
+        } catch (IOException e) {
+            Log.e("Error in logging: ", e.getMessage(), e);
+        }
+        Log.d(LOGTAG, "DNS servers: ");
         for (String s : dnsServers) {
             Log.d(LOGTAG, s);
         }
@@ -171,6 +198,13 @@ public class MainActivity extends Activity
             "proxy host: " + NetworkUtil.getProxyHost() + " ,port: " + NetworkUtil.getProxyPort());
         Log.d(LOGTAG, "custom network info: " + NetworkUtil.getNetworkInfo(this));
 
+    }
+
+    private void appendToBuffer(BufferedWriter buf, SimpleDateFormat sdf, String text)
+        throws IOException
+    {
+        buf.append(sdf.format(new Date()) + ": " + text);
+        buf.newLine();
     }
 
     private void phoneCallToAlert()
@@ -224,8 +258,7 @@ public class MainActivity extends Activity
 
     private static Process startTcpDump(String captureFileName)
     {
-
-        File eternityDir = new File(Environment.getExternalStorageDirectory() + "/eternity");
+        File eternityDir = new File(ETERNITY_DIR);
         eternityDir.mkdir();
         Process p = null;
         try {
@@ -236,7 +269,7 @@ public class MainActivity extends Activity
             os.writeBytes("chmod 777 system/bin/tcpdump\n");
             os.writeBytes("mount -o remount,ro /system\n");
             os.writeBytes(
-                "/system/bin/tcpdump -vv -s 0 -w /sdcard/eternity/" + captureFileName + '\n');
+                "/system/bin/tcpdump -vv -s 0 -w " + ETERNITY_DIR + captureFileName + '\n');
             os.writeBytes("exit\n");
             os.flush();
         } catch (IOException e) {
