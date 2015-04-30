@@ -24,6 +24,8 @@ import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
+import to.talk.eternity.network.ConnectionMetric;
+
 public class NetworkClient
 {
 

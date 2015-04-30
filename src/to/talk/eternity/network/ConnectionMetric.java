@@ -1,4 +1,4 @@
-package to.talk.eternity;
+package to.talk.eternity.network;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;

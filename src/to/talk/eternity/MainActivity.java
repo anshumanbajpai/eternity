@@ -33,12 +33,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import to.talk.eternity.network.ConnectionMetric;
+import to.talk.eternity.network.NetworkUtil;
 import to.talk.eternity.notifications.NotificationContent;
 import to.talk.eternity.notifications.Notifier;
 
@@ -79,9 +82,10 @@ public class MainActivity extends Activity
     private void testConnectivity()
     {
 
+        final ConnectionMetric connectionMetric = new ConnectionMetric();
         SettableFuture<ConnectionMetric> connectionFuture = NetworkClient
             .connect(Config.DOOR_HOST, Config.DOOR_PORT, Config.USE_SECURE, Config.SOCKET_TIMEOUT,
-                Config.REQUEST_STRING, true, new ConnectionMetric(), Config.PROXY,
+                Config.REQUEST_STRING, true, connectionMetric, Config.PROXY,
                 Config.INVALIDATE_SESSION);
         Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>()
         {
@@ -107,6 +111,7 @@ public class MainActivity extends Activity
                         {
                             Log.d(LOGTAG, "Http request succeeds ");
                             // App  has reached the state where its unable to connect to door despite of connectivity and http requests are working.
+                            logDeviceInfo(connectionMetric);
                             startDebugging();
 
                         }
@@ -139,8 +144,8 @@ public class MainActivity extends Activity
         phoneCallToAlert();
         Log.d(LOGTAG, "starting tcpdump");
         final String captureFilename = getCaptureFilename();
-        final Process tcpDumpProcess = startTcpDump(captureFilename);
-        issueNotification(captureFilename);
+        _tcpDumpProcess = startTcpDump(captureFilename);
+        sendNotification(captureFilename);
         Log.d(LOGTAG, "starting whatsapp");
         startWhatsapp();
         _executor.schedule(new Runnable()
@@ -148,9 +153,24 @@ public class MainActivity extends Activity
             @Override
             public void run()
             {
-                stopTcpDump(tcpDumpProcess);
+                stopTcpDump(_tcpDumpProcess);
             }
-        }, 120, TimeUnit.SECONDS);
+        }, 300, TimeUnit.SECONDS);
+    }
+
+    private void logDeviceInfo(ConnectionMetric connectionMetric)
+    {
+        Log.d(LOGTAG, "connection metric: " + connectionMetric == null ? "null" : connectionMetric
+            .toString());
+        Log.d(LOGTAG, "dns servers: ");
+        ArrayList<String> dnsServers = NetworkUtil.getDNSServers();
+        for (String s : dnsServers) {
+            Log.d(LOGTAG, s);
+        }
+        Log.d(LOGTAG,
+            "proxy host: " + NetworkUtil.getProxyHost() + " ,port: " + NetworkUtil.getProxyPort());
+        Log.d(LOGTAG, "custom network info: " + NetworkUtil.getNetworkInfo(this));
+
     }
 
     private void phoneCallToAlert()
@@ -160,10 +180,10 @@ public class MainActivity extends Activity
         startActivity(callIntent);
     }
 
-    private void issueNotification(String captureFilename)
+    private void sendNotification(String captureFilename)
     {
-        _notifier.notify(new NotificationContent(MainActivity.this,
-            "tcpdump capture file: " + captureFilename));
+        _notifier.notify(
+            new NotificationContent(MainActivity.this, "tcpdump capture file: " + captureFilename));
     }
 
     private void attachButtonClickListeners()
@@ -215,7 +235,8 @@ public class MainActivity extends Activity
             os.writeBytes("cp /sdcard/Android/data/to.talk.eternity/files/tcpdump system/bin\n");
             os.writeBytes("chmod 777 system/bin/tcpdump\n");
             os.writeBytes("mount -o remount,ro /system\n");
-            os.writeBytes("/system/bin/tcpdump -vv -s 0 -w /sdcard/eternity/" + captureFileName + '\n');
+            os.writeBytes(
+                "/system/bin/tcpdump -vv -s 0 -w /sdcard/eternity/" + captureFileName + '\n');
             os.writeBytes("exit\n");
             os.flush();
         } catch (IOException e) {
