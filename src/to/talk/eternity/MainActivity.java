@@ -23,7 +23,6 @@ import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.TextHttpResponseHandler;
 
 import org.apache.http.Header;
-import org.w3c.dom.Text;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -31,11 +30,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import to.talk.eternity.notifications.NotificationContent;
+import to.talk.eternity.notifications.Notifier;
 
 public class MainActivity extends Activity
 {
@@ -46,6 +49,7 @@ public class MainActivity extends Activity
     private Button _startCaptureBtn;
     private Button _stopCaptureBtn;
     private TextView _captureStatus;
+    private Notifier _notifier;
     private volatile Process _tcpDumpProcess;
 
     @Override
@@ -66,6 +70,7 @@ public class MainActivity extends Activity
                 testConnectivity();
             }
         }, 0, 3, TimeUnit.MINUTES);
+        _notifier = new Notifier(this);
     }
 
 
@@ -109,7 +114,7 @@ public class MainActivity extends Activity
                             }
 
                             Log.d(LOGTAG, "starting tcpdump");
-                            final Process tcpDumpProcess = startTcpDump(new Date().toString());
+                            final Process tcpDumpProcess = startTcpDump(getCaptureFilename());
                             Log.d(LOGTAG, "starting whatsapp");
                             startWhatsapp();
                             _executor.schedule(new Runnable()
@@ -143,13 +148,16 @@ public class MainActivity extends Activity
             {
                 _startCaptureBtn.setEnabled(false);
                 _stopCaptureBtn.setEnabled(true);
-                _tcpDumpProcess = startTcpDump("tcpdump_" + new Date().toString());
-                if(_tcpDumpProcess != null){
+                String captureFileName = getCaptureFilename();//"tcpdump_code.cap"; //+ new Date().toString();
+                _tcpDumpProcess = startTcpDump(captureFileName);
+                if (_tcpDumpProcess != null) {
                     _captureStatus.setText("Capture in progress");
-                }
-                else {
+                } else {
                     _captureStatus.setText("Could not start tcpdump capture");
                 }
+
+                _notifier.notify(new NotificationContent(MainActivity.this,
+                    "tcpdump capture file: " + captureFileName));
             }
         });
 
@@ -166,6 +174,11 @@ public class MainActivity extends Activity
         });
     }
 
+    private String getCaptureFilename()
+    {
+        return "tcpdump_" + new SimpleDateFormat("yyyyMMddhhmm'.cap'").format(new Date());
+    }
+
     private static Process startTcpDump(String captureFileName)
     {
 
@@ -177,8 +190,7 @@ public class MainActivity extends Activity
             os.writeBytes("cp /sdcard/Android/data/to.talk.eternity/files/tcpdump system/bin\n");
             os.writeBytes("chmod 777 system/bin/tcpdump\n");
             os.writeBytes("mount -o remount,ro /system\n");
-            os.writeBytes("/system/bin/tcpdump -vv -s 0 -w /sdcard/" + captureFileName +
-                          ".cap\n");
+            os.writeBytes("/system/bin/tcpdump -vv -s 0 -w /sdcard/" + captureFileName + '\n');
             os.writeBytes("exit\n");
             os.flush();
         } catch (IOException e) {
