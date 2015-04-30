@@ -39,3 +39,4 @@ proguard/
 
 # build folder
 build/
+.idea/copyright/profiles_settings.xml
