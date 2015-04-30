@@ -109,6 +109,22 @@ public class ConnectionMetric {
         return isSecure;
     }
 
+    @Override
+    public String toString() {
+        return "ConnectionMetric{" +
+                "dnsResolutionTime=" + dnsResolutionTime +
+                ", tcpHandshakeTime=" + tcpHandshakeTime +
+                ", sslHandshakeTime=" + sslHandshakeTime +
+                ", responseTime=" + responseTime +
+                ", resolvedAddress=" + resolvedAddress +
+                ", response='" + response + '\'' +
+                ", request='" + request + '\'' +
+                ", isSecure=" + isSecure +
+                ", state=" + state +
+                ", proxy=" + proxy +
+                '}';
+    }
+
     enum State {
         INIT, DNS_REQUESTED, DNS_RESOLVED, TCP_HANDSHAKE_REQUESTED, TCP_HANDSHAKE_DONE, SSL_HANDSHAKE_RQUESTED,
         SSL_HANDSHAKE_DONE, REQ_SENT, RESP_RECEIVED
