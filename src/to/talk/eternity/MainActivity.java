@@ -25,6 +25,7 @@ import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.TextHttpResponseHandler;
 
 import org.apache.http.Header;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
@@ -100,7 +101,7 @@ public class MainActivity extends Activity
             }
 
             @Override
-            public void onFailure(Throwable throwable)
+            public void onFailure(final Throwable throwable)
             {
 
                 Log.d(LOGTAG, "Door connection failed : " + throwable);
@@ -116,6 +117,7 @@ public class MainActivity extends Activity
                             Log.d(LOGTAG, "Http request succeeds ");
                             // App  has reached the state where its unable to connect to door despite of connectivity and http requests are working.
                             logDeviceInfo(connectionMetric);
+                            informUser(throwable);
                             startDebugging();
 
                         }
@@ -131,6 +133,12 @@ public class MainActivity extends Activity
         });
     }
 
+    private void informUser(@NotNull Throwable throwable)
+    {
+        phoneCallToAlert();
+        sendNotification(throwable.getMessage());
+    }
+
     private void killWhatsapp()
     {
         int pid = getWhatsappPid();
@@ -144,15 +152,12 @@ public class MainActivity extends Activity
 
     private void startDebugging()
     {
-        logDeviceInfo(null);
         killWhatsapp();
-        phoneCallToAlert();
         Log.d(LOGTAG, "starting tcpdump");
         final String captureFilename = getCaptureFilename();
         _tcpDumpProcess = startTcpDump(captureFilename);
         _startCaptureBtn.setEnabled(false);
         _stopCaptureBtn.setEnabled(true);
-        sendNotification(captureFilename);
         Log.d(LOGTAG, "starting whatsapp");
         startWhatsapp();
         _executor.schedule(new Runnable()
@@ -232,6 +237,7 @@ public class MainActivity extends Activity
             {
                 _startCaptureBtn.setEnabled(false);
                 _stopCaptureBtn.setEnabled(true);
+                logDeviceInfo(null);
                 startDebugging();
                 if (_tcpDumpProcess != null) {
                     _captureStatus.setText("Capture in progress");
