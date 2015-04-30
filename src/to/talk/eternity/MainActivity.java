@@ -2,6 +2,7 @@ package to.talk.eternity;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -10,7 +11,6 @@ import android.content.res.AssetManager;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -53,8 +53,7 @@ public class MainActivity extends Activity
     private final static String LOGTAG = MainActivity.class.getSimpleName();
     private final static String WHATSAPP_PACKAGE = "com.whatsapp";
     private static final String NETWORK_DETAILS_FILENAME = "network-details.txt";
-    private final static String ETERNITY_DIR =
-        Environment.getExternalStorageDirectory() + "/eternity/";
+    private final static String ETERNITY_DIR = "/sdcard/eternity/";
     private final ScheduledExecutorService _executor = Executors.newSingleThreadScheduledExecutor();
     private Button _startCaptureBtn;
     private Button _stopCaptureBtn;
@@ -151,6 +150,8 @@ public class MainActivity extends Activity
         Log.d(LOGTAG, "starting tcpdump");
         final String captureFilename = getCaptureFilename();
         _tcpDumpProcess = startTcpDump(captureFilename);
+        _startCaptureBtn.setEnabled(false);
+        _stopCaptureBtn.setEnabled(true);
         sendNotification(captureFilename);
         Log.d(LOGTAG, "starting whatsapp");
         startWhatsapp();
@@ -160,6 +161,8 @@ public class MainActivity extends Activity
             public void run()
             {
                 stopTcpDump(_tcpDumpProcess);
+                _startCaptureBtn.setEnabled(true);
+                _stopCaptureBtn.setEnabled(false);
             }
         }, 300, TimeUnit.SECONDS);
     }
@@ -247,6 +250,9 @@ public class MainActivity extends Activity
                 stopTcpDump(_tcpDumpProcess);
                 _captureStatus.setText("Capture complete");
                 _startCaptureBtn.setEnabled(true);
+                NotificationManager nm = (NotificationManager) getSystemService(
+                    NOTIFICATION_SERVICE);
+                nm.cancelAll();
             }
         });
     }
