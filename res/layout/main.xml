@@ -11,6 +11,7 @@
             android:text="Start capture"
             android:layout_marginTop="20dp"
             android:gravity="center"
+            android:enabled="true"
             />
 
 
@@ -19,6 +20,7 @@
             android:id="@+id/stopCaptureBtn"
             android:text="Stop capture"
             android:layout_marginTop="10dp"
+            android:enabled="false"
             />
 
     <TextView

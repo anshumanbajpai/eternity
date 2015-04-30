@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.common.util.concurrent.FutureCallback;
@@ -22,6 +23,7 @@ import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.TextHttpResponseHandler;
 
 import org.apache.http.Header;
+import org.w3c.dom.Text;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -43,6 +45,7 @@ public class MainActivity extends Activity
     private final ScheduledExecutorService _executor = Executors.newSingleThreadScheduledExecutor();
     private Button _startCaptureBtn;
     private Button _stopCaptureBtn;
+    private TextView _captureStatus;
     private volatile Process _tcpDumpProcess;
 
     @Override
@@ -52,6 +55,7 @@ public class MainActivity extends Activity
         setContentView(R.layout.main);
         _startCaptureBtn = (Button) findViewById(R.id.startCaptureBtn);
         _stopCaptureBtn = (Button) findViewById(R.id.stopCaptureBtn);
+        _captureStatus = (TextView) findViewById(R.id.captureStatus);
         attachButtonClickListeners();
         copyTcpDumpFile();
         _executor.scheduleAtFixedRate(new Runnable()
@@ -137,7 +141,15 @@ public class MainActivity extends Activity
             @Override
             public void onClick(View v)
             {
+                _startCaptureBtn.setEnabled(false);
+                _stopCaptureBtn.setEnabled(true);
                 _tcpDumpProcess = startTcpDump("tcpdump_" + new Date().toString());
+                if(_tcpDumpProcess != null){
+                    _captureStatus.setText("Capture in progress");
+                }
+                else {
+                    _captureStatus.setText("Could not start tcpdump capture");
+                }
             }
         });
 
@@ -146,7 +158,10 @@ public class MainActivity extends Activity
             @Override
             public void onClick(View v)
             {
+                _stopCaptureBtn.setEnabled(false);
                 stopTcpDump(_tcpDumpProcess);
+                _captureStatus.setText("Capture complete");
+                _startCaptureBtn.setEnabled(true);
             }
         });
     }
