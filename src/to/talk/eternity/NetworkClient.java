@@ -1,13 +1,17 @@
 package to.talk.eternity;
 
 import android.util.Log;
+
 import com.google.common.util.concurrent.SettableFuture;
 
-import javax.net.ssl.HandshakeCompletedEvent;
-import javax.net.ssl.HandshakeCompletedListener;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
@@ -15,27 +19,42 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Executors;
 
-public class NetworkClient {
+import javax.net.ssl.HandshakeCompletedEvent;
+import javax.net.ssl.HandshakeCompletedListener;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
+public class NetworkClient
+{
 
     public static final String LOGTAG = "SocketClient";
 
-    public static SettableFuture<ConnectionMetric> connect(final String host, final int port, final boolean useSecure, final int timeoutInSec,
-                                                           final String requestString, final boolean isDoorProtocol, final ConnectionMetric metricHolder, final Proxy proxy,
-                                                           final boolean invalidateSession) {
+    public static SettableFuture<ConnectionMetric> connect(final String host, final int port,
+                                                           final boolean useSecure,
+                                                           final int timeoutInSec,
+                                                           final String requestString,
+                                                           final boolean isDoorProtocol,
+                                                           final ConnectionMetric metricHolder,
+                                                           final Proxy proxy,
+                                                           final boolean invalidateSession)
+    {
         final SettableFuture<ConnectionMetric> future = SettableFuture.create();
-        Executors.newSingleThreadExecutor().execute(new Runnable() {
+        Executors.newSingleThreadExecutor().execute(new Runnable()
+        {
             @Override
-            public void run() {
+            public void run()
+            {
                 try {
 
                     Socket socket = null;
 
                     if (useSecure) {
-                        Log.i(LOGTAG, "property: javax.net.debug=" + System.getProperty("javax.net.debug"));
+                        Log.i(LOGTAG,
+                            "property: javax.net.debug=" + System.getProperty("javax.net.debug"));
                         System.setProperty("javax.net.debug", "all");
-                        Log.i(LOGTAG, "property: javax.net.debug=" + System.getProperty("javax.net.debug"));
-                        SSLSocketFactory factory =
-                                (SSLSocketFactory) SSLSocketFactory.getDefault();
+                        Log.i(LOGTAG,
+                            "property: javax.net.debug=" + System.getProperty("javax.net.debug"));
+                        SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
                         Log.i(LOGTAG, "created factory:" + factory);
                         socket = factory.createSocket();
 
@@ -63,9 +82,11 @@ public class NetworkClient {
                     if (useSecure) {
                         metricHolder.startSSLHandshakeTimer();
                         final SSLSocket sslSocket = (SSLSocket) socket;
-                        sslSocket.addHandshakeCompletedListener(new HandshakeCompletedListener() {
+                        sslSocket.addHandshakeCompletedListener(new HandshakeCompletedListener()
+                        {
                             @Override
-                            public void handshakeCompleted(HandshakeCompletedEvent event) {
+                            public void handshakeCompleted(HandshakeCompletedEvent event)
+                            {
                                 metricHolder.finishSSLHandshakeTimer();
                                 Log.i(LOGTAG, "Handshake completed");
                                 if (invalidateSession) {
@@ -88,7 +109,8 @@ public class NetworkClient {
                         out.flush();
                     } else {
 
-                        PrintWriter printWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(out)));
+                        PrintWriter printWriter = new PrintWriter(
+                            new BufferedWriter(new OutputStreamWriter(out)));
                         printWriter.print(requestString);
                         metricHolder.startResponseTimer(requestString);
                         printWriter.flush();
@@ -109,8 +131,7 @@ public class NetworkClient {
 
                     } else {
                         BufferedReader bufferedReader = new BufferedReader(
-                                new InputStreamReader(
-                                        socket.getInputStream()));
+                            new InputStreamReader(socket.getInputStream()));
 
                         String inputLine = bufferedReader.readLine();
                         metricHolder.finishResponseTimer(inputLine);
@@ -130,7 +151,8 @@ public class NetworkClient {
         return future;
     }
 
-    private static byte[] getBytes(int capacity, String requestString) {
+    private static byte[] getBytes(int capacity, String requestString)
+    {
         final byte[] payload = requestString.getBytes();
         ByteBuffer b = ByteBuffer.allocate(capacity);
         b.order(ByteOrder.BIG_ENDIAN);
@@ -143,22 +165,27 @@ public class NetworkClient {
         return result;
     }
 
-    private static int getLength(String requestString) {
+    private static int getLength(String requestString)
+    {
         return requestString.getBytes().length + 4;
     }
 
-    private static String readMessageFromSocket(int messageLength, InputStream socket) throws IOException {
+    private static String readMessageFromSocket(int messageLength, InputStream socket)
+        throws IOException
+    {
         byte[] messageBuffer = readNBytestFromSocket(messageLength, socket);
         return new String(messageBuffer);
     }
 
-    private static int readLength(InputStream inputStream) throws IOException {
+    private static int readLength(InputStream inputStream) throws IOException
+    {
         byte[] frameBuffer = readNBytestFromSocket(4, inputStream);
         int messageLength = getIntegerFromByteArray(frameBuffer);
         return messageLength;
     }
 
-    public static int getIntegerFromByteArray(byte[] frameBuffer) {
+    public static int getIntegerFromByteArray(byte[] frameBuffer)
+    {
         ByteBuffer lengthConversionBuffer;
         int messageLength;
         lengthConversionBuffer = ByteBuffer.wrap(frameBuffer);
@@ -168,7 +195,8 @@ public class NetworkClient {
         return messageLength;
     }
 
-    private static byte[] readNBytestFromSocket(int n, InputStream inputStream) throws IOException {
+    private static byte[] readNBytestFromSocket(int n, InputStream inputStream) throws IOException
+    {
         byte[] messageBuffer = new byte[n];
         int messageOffset = 0;
 

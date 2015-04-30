@@ -2,7 +2,8 @@ package to.talk.eternity;
 
 import java.net.Proxy;
 
-public class Config {
+public class Config
+{
 
     public static final String DOOR_HOST = "doormobile.handler.talk.to";
     public static final int DOOR_PORT = 443;
