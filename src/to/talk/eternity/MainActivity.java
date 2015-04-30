@@ -8,7 +8,9 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.net.ConnectivityManager;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -105,26 +107,7 @@ public class MainActivity extends Activity
                         {
                             Log.d(LOGTAG, "Http request succeeds ");
                             // App  has reached the state where its unable to connect to door despite of connectivity and http requests are working.
-                            int pid = getWhatsappPid();
-                            Log.d(LOGTAG, "Whatsapp Pid : " + pid);
-                            //kill the whatsapp process, needs root permission
-                            if (pid != -1) {
-                                Log.d(LOGTAG, "killing whatsapp");
-                                killProcess(pid);
-                            }
-
-                            Log.d(LOGTAG, "starting tcpdump");
-                            final Process tcpDumpProcess = startTcpDump(getCaptureFilename());
-                            Log.d(LOGTAG, "starting whatsapp");
-                            startWhatsapp();
-                            _executor.schedule(new Runnable()
-                            {
-                                @Override
-                                public void run()
-                                {
-                                    stopTcpDump(tcpDumpProcess);
-                                }
-                            }, 30, TimeUnit.SECONDS);
+                            startDebugging();
 
                         }
 
@@ -139,6 +122,50 @@ public class MainActivity extends Activity
         });
     }
 
+    private void killWhatsapp()
+    {
+        int pid = getWhatsappPid();
+        Log.d(LOGTAG, "Whatsapp Pid : " + pid);
+        //kill the whatsapp process, needs root permission
+        if (pid != -1) {
+            Log.d(LOGTAG, "killing whatsapp");
+            killProcess(pid);
+        }
+    }
+
+    private void startDebugging()
+    {
+        killWhatsapp();
+        phoneCallToAlert();
+        Log.d(LOGTAG, "starting tcpdump");
+        final String captureFilename = getCaptureFilename();
+        final Process tcpDumpProcess = startTcpDump(captureFilename);
+        issueNotification(captureFilename);
+        Log.d(LOGTAG, "starting whatsapp");
+        startWhatsapp();
+        _executor.schedule(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                stopTcpDump(tcpDumpProcess);
+            }
+        }, 120, TimeUnit.SECONDS);
+    }
+
+    private void phoneCallToAlert()
+    {
+        Intent callIntent = new Intent(Intent.ACTION_CALL);
+        callIntent.setData(Uri.parse("tel:" + Config.PHONE_NUMBER));
+        startActivity(callIntent);
+    }
+
+    private void issueNotification(String captureFilename)
+    {
+        _notifier.notify(new NotificationContent(MainActivity.this,
+            "tcpdump capture file: " + captureFilename));
+    }
+
     private void attachButtonClickListeners()
     {
         _startCaptureBtn.setOnClickListener(new View.OnClickListener()
@@ -148,16 +175,12 @@ public class MainActivity extends Activity
             {
                 _startCaptureBtn.setEnabled(false);
                 _stopCaptureBtn.setEnabled(true);
-                String captureFileName = getCaptureFilename();//"tcpdump_code.cap"; //+ new Date().toString();
-                _tcpDumpProcess = startTcpDump(captureFileName);
+                startDebugging();
                 if (_tcpDumpProcess != null) {
                     _captureStatus.setText("Capture in progress");
                 } else {
                     _captureStatus.setText("Could not start tcpdump capture");
                 }
-
-                _notifier.notify(new NotificationContent(MainActivity.this,
-                    "tcpdump capture file: " + captureFileName));
             }
         });
 
@@ -182,6 +205,8 @@ public class MainActivity extends Activity
     private static Process startTcpDump(String captureFileName)
     {
 
+        File eternityDir = new File(Environment.getExternalStorageDirectory() + "/eternity");
+        eternityDir.mkdir();
         Process p = null;
         try {
             p = Runtime.getRuntime().exec("su");
@@ -190,7 +215,7 @@ public class MainActivity extends Activity
             os.writeBytes("cp /sdcard/Android/data/to.talk.eternity/files/tcpdump system/bin\n");
             os.writeBytes("chmod 777 system/bin/tcpdump\n");
             os.writeBytes("mount -o remount,ro /system\n");
-            os.writeBytes("/system/bin/tcpdump -vv -s 0 -w /sdcard/" + captureFileName + '\n');
+            os.writeBytes("/system/bin/tcpdump -vv -s 0 -w /sdcard/eternity/" + captureFileName + '\n');
             os.writeBytes("exit\n");
             os.flush();
         } catch (IOException e) {

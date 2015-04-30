@@ -13,4 +13,5 @@ public class Config
     public static final Proxy PROXY = null;
     public static final boolean INVALIDATE_SESSION = false;
     public static final String HTTP_ENDPOINT = "http://www.google.com";
+    public static final String PHONE_NUMBER = "+917042393702";
 }
