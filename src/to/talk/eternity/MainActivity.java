@@ -30,11 +30,13 @@ import org.jetbrains.annotations.NotNull;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -53,7 +55,7 @@ public class MainActivity extends Activity
 
     private final static String LOGTAG = MainActivity.class.getSimpleName();
     private final static String WHATSAPP_PACKAGE = "com.whatsapp";
-    private static final String NETWORK_DETAILS_FILENAME = "network-details.txt";
+    private static final String NETWORK_LOGS_FILENAME = "network.log";
     private final static String ETERNITY_DIR = "/sdcard/eternity/";
     private final ScheduledExecutorService _executor = Executors.newSingleThreadScheduledExecutor();
     private Button _startCaptureBtn;
@@ -114,12 +116,22 @@ public class MainActivity extends Activity
                         @Override
                         public void onSuccess(Void o)
                         {
+                            File file = new File(ETERNITY_DIR + NETWORK_LOGS_FILENAME);
+                            file.mkdirs();
+                            PrintStream ps;
+                            try {
+                                ps = new PrintStream(file);
+                                throwable.printStackTrace(ps);
+                                ps.close();
+                            } catch (FileNotFoundException e) {
+                                e.printStackTrace();
+                            }
+
                             Log.d(LOGTAG, "Http request succeeds ");
                             // App  has reached the state where its unable to connect to door despite of connectivity and http requests are working.
                             logDeviceInfo(connectionMetric);
-                            informUser(throwable);
                             startDebugging();
-
+                            informUser(throwable);
                         }
 
                         @Override
@@ -176,7 +188,7 @@ public class MainActivity extends Activity
     {
         File directory = new File(ETERNITY_DIR);
         directory.mkdirs();
-        File logFile = new File(ETERNITY_DIR + NETWORK_DETAILS_FILENAME);
+        File logFile = new File(ETERNITY_DIR + NETWORK_LOGS_FILENAME);
         ArrayList<String> dnsServers = NetworkUtil.getDNSServers();
         try {
             BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
