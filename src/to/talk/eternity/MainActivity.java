@@ -13,6 +13,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -60,7 +61,9 @@ public class MainActivity extends Activity
     private final ScheduledExecutorService _executor = Executors.newSingleThreadScheduledExecutor();
     private Button _startCaptureBtn;
     private Button _stopCaptureBtn;
+    private Button _testConnectivityBtn;
     private TextView _captureStatus;
+    private TextView _connectivityStatus;
     private Notifier _notifier;
     private volatile Process _tcpDumpProcess;
 
@@ -72,6 +75,9 @@ public class MainActivity extends Activity
         _startCaptureBtn = (Button) findViewById(R.id.startCaptureBtn);
         _stopCaptureBtn = (Button) findViewById(R.id.stopCaptureBtn);
         _captureStatus = (TextView) findViewById(R.id.captureStatus);
+        _testConnectivityBtn = (Button) findViewById(R.id.testConnectivityBtn);
+        _connectivityStatus = (TextView) findViewById(R.id.connectivityStatus);
+
         attachButtonClickListeners();
         copyTcpDumpFile();
         _executor.scheduleAtFixedRate(new Runnable()
@@ -79,70 +85,69 @@ public class MainActivity extends Activity
             @Override
             public void run()
             {
-                testConnectivity();
+                testAndDebugIfIssueReproduced();
             }
         }, 0, 3, TimeUnit.MINUTES);
         _notifier = new Notifier(this);
     }
 
 
-    private void testConnectivity()
+    private void testAndDebugIfIssueReproduced()
     {
-
-        final ConnectionMetric connectionMetric = new ConnectionMetric();
-        SettableFuture<ConnectionMetric> connectionFuture = NetworkClient
-            .connect(Config.DOOR_HOST, Config.DOOR_PORT, Config.USE_SECURE, Config.SOCKET_TIMEOUT,
-                Config.REQUEST_STRING, true, connectionMetric, Config.PROXY,
-                Config.INVALIDATE_SESSION);
-        Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>()
+        runOnUiThread(new Runnable()
         {
             @Override
-            public void onSuccess(ConnectionMetric connectionMetric)
+            public void run()
             {
-                Log.d(LOGTAG, "Door connected");
+                _testConnectivityBtn.setEnabled(false);
+                _startCaptureBtn.setEnabled(false);
+                _stopCaptureBtn.setEnabled(false);
+                _connectivityStatus.setText("");
+            }
+        });
+        final ConnectionMetric connectionMetric = new ConnectionMetric();
+        ListenableFuture<Throwable> future = testConnectivity(connectionMetric);
+        Futures.addCallback(future, new FutureCallback<Throwable>()
+        {
+            @Override
+            public void onSuccess(final Throwable throwable)
+            {
+                runOnUiThread(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        refreshConnectvityTestView(throwable);
+                    }
+                });
+                if (throwable != null) {
+                    logDeviceInfo(connectionMetric);
+                    startDebugging();
+                    informUser(throwable);
+                }
             }
 
             @Override
-            public void onFailure(final Throwable throwable)
+            public void onFailure(Throwable throwable)
             {
 
-                Log.d(LOGTAG, "Door connection failed : " + throwable);
-                Log.d(LOGTAG, "N/w status : " + isConnected());
-
-                if (isConnected()) {
-
-                    Futures.addCallback(makeHttpRequest(), new FutureCallback<Void>()
-                    {
-                        @Override
-                        public void onSuccess(Void o)
-                        {
-                            File file = new File(ETERNITY_DIR + NETWORK_LOGS_FILENAME);
-                            file.mkdirs();
-                            PrintStream ps;
-                            try {
-                                ps = new PrintStream(file);
-                                throwable.printStackTrace(ps);
-                                ps.close();
-                            } catch (FileNotFoundException e) {
-                                e.printStackTrace();
-                            }
-
-                            Log.d(LOGTAG, "Http request succeeds ");
-                            // App  has reached the state where its unable to connect to door despite of connectivity and http requests are working.
-                            logDeviceInfo(connectionMetric);
-                            startDebugging();
-                            informUser(throwable);
-                        }
-
-                        @Override
-                        public void onFailure(Throwable throwable)
-                        {
-                            Log.d(LOGTAG, "Http request fails : " + throwable);
-                        }
-                    });
-                }
             }
         });
+
+    }
+
+    private void refreshConnectvityTestView(Throwable throwable)
+    {
+        _testConnectivityBtn.setEnabled(true);
+        _startCaptureBtn.setEnabled(true);
+        if (throwable == null) {
+            _connectivityStatus.setText(
+                "Either both door and google.com connected or both couldn't connect");
+        } else {
+            _connectivityStatus.setText(
+                "Yay! door couldn't connect and google.com connected, error message: " +
+                throwable.getMessage());
+        }
     }
 
     private void informUser(@NotNull Throwable throwable)
@@ -168,8 +173,15 @@ public class MainActivity extends Activity
         Log.d(LOGTAG, "starting tcpdump");
         final String captureFilename = getCaptureFilename();
         _tcpDumpProcess = startTcpDump(captureFilename);
-        _startCaptureBtn.setEnabled(false);
-        _stopCaptureBtn.setEnabled(true);
+        runOnUiThread(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                _startCaptureBtn.setEnabled(false);
+                _stopCaptureBtn.setEnabled(true);
+            }
+        });
         Log.d(LOGTAG, "starting whatsapp");
         startWhatsapp();
         _executor.schedule(new Runnable()
@@ -178,10 +190,17 @@ public class MainActivity extends Activity
             public void run()
             {
                 stopTcpDump(_tcpDumpProcess);
-                _startCaptureBtn.setEnabled(true);
-                _stopCaptureBtn.setEnabled(false);
+                runOnUiThread(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        _startCaptureBtn.setEnabled(true);
+                        _stopCaptureBtn.setEnabled(false);
+                    }
+                });
             }
-        }, 300, TimeUnit.SECONDS);
+        }, 120, TimeUnit.SECONDS);
     }
 
     private void logDeviceInfo(ConnectionMetric connectionMetric)
@@ -237,27 +256,68 @@ public class MainActivity extends Activity
     private void sendNotification(String captureFilename)
     {
         _notifier.notify(
-            new NotificationContent(MainActivity.this, "tcpdump capture file: " + captureFilename));
+            new NotificationContent(MainActivity.this, "error: " + captureFilename));
     }
 
     private void attachButtonClickListeners()
     {
-        _startCaptureBtn.setOnClickListener(new View.OnClickListener()
+        _testConnectivityBtn.setOnClickListener(new OnClickListener()
         {
             @Override
             public void onClick(View v)
             {
+                _testConnectivityBtn.setEnabled(false);
                 _startCaptureBtn.setEnabled(false);
-                _stopCaptureBtn.setEnabled(true);
-                logDeviceInfo(null);
-                startDebugging();
-                if (_tcpDumpProcess != null) {
-                    _captureStatus.setText("Capture in progress");
-                } else {
-                    _captureStatus.setText("Could not start tcpdump capture");
-                }
+                _stopCaptureBtn.setEnabled(false);
+                _connectivityStatus.setText("");
+                final ConnectionMetric connectionMetric = new ConnectionMetric();
+                ListenableFuture<Throwable> future = testConnectivity(connectionMetric);
+                Futures.addCallback(future, new FutureCallback<Throwable>()
+                {
+                    @Override
+                    public void onSuccess(final Throwable throwable)
+                    {
+                        runOnUiThread(new Runnable()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                refreshConnectvityTestView(throwable);
+                            }
+                        });
+
+                    }
+
+                    @Override
+                    public void onFailure(Throwable throwable)
+                    {
+                        runOnUiThread(new Runnable()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                _testConnectivityBtn.setEnabled(true);
+                            }
+                        });
+                    }
+                });
             }
-        });
+        }); _startCaptureBtn.setOnClickListener(new View.OnClickListener()
+    {
+        @Override
+        public void onClick(View v)
+        {
+            _startCaptureBtn.setEnabled(false);
+            _stopCaptureBtn.setEnabled(true);
+            logDeviceInfo(null);
+            startDebugging();
+            if (_tcpDumpProcess != null) {
+                _captureStatus.setText("Capture in progress");
+            } else {
+                _captureStatus.setText("Could not start tcpdump capture");
+            }
+        }
+    });
 
         _stopCaptureBtn.setOnClickListener(new View.OnClickListener()
         {
@@ -444,6 +504,70 @@ public class MainActivity extends Activity
                 }
             }
         }
+    }
+
+    private ListenableFuture<Throwable> testConnectivity(ConnectionMetric connectionMetric)
+    {
+        final SettableFuture<Throwable> future = SettableFuture.create();
+        SettableFuture<ConnectionMetric> connectionFuture = NetworkClient
+            .connect(Config.DOOR_HOST, Config.DOOR_PORT, Config.USE_SECURE, Config.SOCKET_TIMEOUT,
+                Config.REQUEST_STRING, true, connectionMetric, Config.PROXY,
+                Config.INVALIDATE_SESSION);
+        Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>()
+        {
+            @Override
+            public void onSuccess(ConnectionMetric connectionMetric)
+            {
+                Log.d(LOGTAG, "Door connected");
+                future.set(null);
+            }
+
+            @Override
+            public void onFailure(final Throwable throwable)
+            {
+
+                Log.d(LOGTAG, "Door connection failed : " + throwable);
+                Log.d(LOGTAG, "N/w status : " + isConnected());
+
+                if (isConnected()) {
+
+                    Futures.addCallback(makeHttpRequest(), new FutureCallback<Void>()
+                    {
+                        @Override
+                        public void onSuccess(Void o)
+                        {
+                            future.set(throwable);
+                            File eternityDir = new File(ETERNITY_DIR);
+                            eternityDir.mkdirs();
+
+                            File logFile = new File(ETERNITY_DIR + NETWORK_LOGS_FILENAME);
+                            if (!logFile.exists()) {
+                                try {
+                                    logFile.createNewFile();
+                                    PrintStream ps = new PrintStream(logFile);
+                                    throwable.printStackTrace(ps);
+                                    ps.close();
+                                } catch (FileNotFoundException e) {
+                                    e.printStackTrace();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+
+                                Log.d(LOGTAG, "Http request succeeds ");
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Throwable throwable)
+                        {
+                            Log.d(LOGTAG, "Http request fails");
+                            future.set(null);
+                        }
+                    });
+                }
+            }
+        });
+        return future;
     }
 
     private void copyFile(InputStream in, OutputStream out) throws IOException
