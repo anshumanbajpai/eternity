@@ -4,7 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.Executors;
@@ -84,9 +84,10 @@ public class Log
 
                 try {
                     File logFile = getOrCreateLogFile();
-                    PrintStream ps = new PrintStream(logFile);
-                    t.printStackTrace(ps);
-                    ps.close();
+                    PrintWriter pw = new PrintWriter(
+                        new BufferedWriter(new FileWriter(logFile, true)));
+                    t.printStackTrace(pw);
+                    pw.close();
                 } catch (IOException e) {
                     e.printStackTrace();
 
