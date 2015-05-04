@@ -11,7 +11,6 @@ import android.content.res.AssetManager;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -28,16 +27,12 @@ import com.loopj.android.http.TextHttpResponseHandler;
 import org.apache.http.Header;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -141,8 +136,8 @@ public class MainActivity extends Activity
         _testConnectivityBtn.setEnabled(true);
         _startCaptureBtn.setEnabled(true);
         if (throwable == null) {
-            _connectivityStatus.setText(
-                "Either both door and google.com connected or both couldn't connect");
+            _connectivityStatus
+                .setText("Either both door and google.com connected or both couldn't connect");
         } else {
             _connectivityStatus.setText(
                 "Yay! door couldn't connect and google.com connected, error message: " +
@@ -205,45 +200,21 @@ public class MainActivity extends Activity
 
     private void logDeviceInfo(ConnectionMetric connectionMetric)
     {
-        File directory = new File(ETERNITY_DIR);
-        directory.mkdirs();
-        File logFile = new File(ETERNITY_DIR + NETWORK_LOGS_FILENAME);
+        if (connectionMetric != null) {
+            Log.d(LOGTAG, "connection metric: " + connectionMetric.toString());
+        }
+
         ArrayList<String> dnsServers = NetworkUtil.getDNSServers();
-        try {
-            BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
-            SimpleDateFormat sdf = new SimpleDateFormat("dd-MM HH:mm:ss:SSS");
-            if (connectionMetric != null) {
-                appendToBuffer(buf, sdf, "connection metric: " + connectionMetric.toString());
-                Log.d(LOGTAG, "connection metric: " + connectionMetric.toString());
-            }
-            StringBuilder sb = new StringBuilder();
-            sb.append("DNS servers: ");
-            for (String s : dnsServers) {
-                sb.append(s + " ");
-            }
-            appendToBuffer(buf, sdf, sb.toString());
-            appendToBuffer(buf, sdf, "proxy host: " + NetworkUtil.getProxyHost() + " ,port: " +
-                                     NetworkUtil.getProxyPort());
-            appendToBuffer(buf, sdf, "custom network info: " + NetworkUtil.getNetworkInfo(this));
-            buf.close();
-        } catch (IOException e) {
-            Log.e("Error in logging: ", e.getMessage(), e);
-        }
-        Log.d(LOGTAG, "DNS servers: ");
+        StringBuilder sb = new StringBuilder();
+        sb.append("DNS servers: ");
         for (String s : dnsServers) {
-            Log.d(LOGTAG, s);
+            sb.append(s + " ");
         }
+        Log.d(LOGTAG, sb.toString());
         Log.d(LOGTAG,
             "proxy host: " + NetworkUtil.getProxyHost() + " ,port: " + NetworkUtil.getProxyPort());
         Log.d(LOGTAG, "custom network info: " + NetworkUtil.getNetworkInfo(this));
 
-    }
-
-    private void appendToBuffer(BufferedWriter buf, SimpleDateFormat sdf, String text)
-        throws IOException
-    {
-        buf.append(sdf.format(new Date()) + ": " + text);
-        buf.newLine();
     }
 
     private void phoneCallToAlert()
@@ -255,8 +226,7 @@ public class MainActivity extends Activity
 
     private void sendNotification(String captureFilename)
     {
-        _notifier.notify(
-            new NotificationContent(MainActivity.this, "error: " + captureFilename));
+        _notifier.notify(new NotificationContent(MainActivity.this, "error: " + captureFilename));
     }
 
     private void attachButtonClickListeners()
@@ -302,22 +272,23 @@ public class MainActivity extends Activity
                     }
                 });
             }
-        }); _startCaptureBtn.setOnClickListener(new View.OnClickListener()
-    {
-        @Override
-        public void onClick(View v)
+        });
+        _startCaptureBtn.setOnClickListener(new View.OnClickListener()
         {
-            _startCaptureBtn.setEnabled(false);
-            _stopCaptureBtn.setEnabled(true);
-            logDeviceInfo(null);
-            startDebugging();
-            if (_tcpDumpProcess != null) {
-                _captureStatus.setText("Capture in progress");
-            } else {
-                _captureStatus.setText("Could not start tcpdump capture");
+            @Override
+            public void onClick(View v)
+            {
+                _startCaptureBtn.setEnabled(false);
+                _stopCaptureBtn.setEnabled(true);
+                logDeviceInfo(null);
+                startDebugging();
+                if (_tcpDumpProcess != null) {
+                    _captureStatus.setText("Capture in progress");
+                } else {
+                    _captureStatus.setText("Could not start tcpdump capture");
+                }
             }
-        }
-    });
+        });
 
         _stopCaptureBtn.setOnClickListener(new View.OnClickListener()
         {
@@ -537,24 +508,8 @@ public class MainActivity extends Activity
                         public void onSuccess(Void o)
                         {
                             future.set(throwable);
-                            File eternityDir = new File(ETERNITY_DIR);
-                            eternityDir.mkdirs();
-
-                            File logFile = new File(ETERNITY_DIR + NETWORK_LOGS_FILENAME);
-                            if (!logFile.exists()) {
-                                try {
-                                    logFile.createNewFile();
-                                    PrintStream ps = new PrintStream(logFile);
-                                    throwable.printStackTrace(ps);
-                                    ps.close();
-                                } catch (FileNotFoundException e) {
-                                    e.printStackTrace();
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-
-                                Log.d(LOGTAG, "Http request succeeds ");
-                            }
+                            Log.d(LOGTAG, "Http request succeeds ");
+                            Log.e(LOGTAG, throwable.getMessage(), throwable);
                         }
 
                         @Override
