@@ -13,10 +13,24 @@ public class Log
     private static final String NETWORK_LOGS_FILENAME = "network.log";
     private final static String ETERNITY_DIR = "/sdcard/eternity/";
 
+    public static void i(String tag, String message)
+    {
+        android.util.Log.i(tag, message);
+        logMessage(message);
+    }
+
     public static void d(String tag, String message)
+    {
+        d(tag, message, null);
+    }
+
+    public static void d(String tag, String message, Throwable t)
     {
         android.util.Log.d(tag, message);
         logMessage(message);
+        if (t != null) {
+            logThrowable(t);
+        }
     }
 
     public static void e(String tag, String message)

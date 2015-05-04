@@ -117,7 +117,7 @@ public class MainActivity extends Activity
                 });
                 if (throwable != null) {
                     logDeviceInfo(connectionMetric);
-                    startDebugging();
+                    startDebugging(connectionMetric);
                     informUser(throwable);
                 }
             }
@@ -162,7 +162,7 @@ public class MainActivity extends Activity
         }
     }
 
-    private void startDebugging()
+    private void startDebugging(ConnectionMetric connectionMetric)
     {
         killWhatsapp();
         Log.d(LOGTAG, "starting tcpdump");
@@ -175,6 +175,24 @@ public class MainActivity extends Activity
             {
                 _startCaptureBtn.setEnabled(false);
                 _stopCaptureBtn.setEnabled(true);
+            }
+        });
+        Log.d(LOGTAG, "Trying connecting with door");
+        ListenableFuture<ConnectionMetric> connectionFuture = connectToDoor(connectionMetric);
+        Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>()
+        {
+            @Override
+            public void onSuccess(ConnectionMetric connectionMetric)
+            {
+                Log.d(LOGTAG, "Door connected");
+            }
+
+            @Override
+            public void onFailure(final Throwable throwable)
+            {
+
+                Log.d(LOGTAG, "Door connection failed : " + throwable);
+                Log.d(LOGTAG, "N/w status : " + isConnected());
             }
         });
         Log.d(LOGTAG, "starting whatsapp");
@@ -196,6 +214,16 @@ public class MainActivity extends Activity
                 });
             }
         }, 120, TimeUnit.SECONDS);
+    }
+
+    private ListenableFuture<ConnectionMetric> connectToDoor(ConnectionMetric connectionMetric)
+    {
+        final SettableFuture<Throwable> future = SettableFuture.create();
+        SettableFuture<ConnectionMetric> connectionFuture = NetworkClient
+            .connect(Config.DOOR_HOST, Config.DOOR_PORT, Config.USE_SECURE, Config.SOCKET_TIMEOUT,
+                Config.REQUEST_STRING, true, connectionMetric, Config.PROXY,
+                Config.INVALIDATE_SESSION);
+        return connectionFuture;
     }
 
     private void logDeviceInfo(ConnectionMetric connectionMetric)
@@ -281,7 +309,7 @@ public class MainActivity extends Activity
                 _startCaptureBtn.setEnabled(false);
                 _stopCaptureBtn.setEnabled(true);
                 logDeviceInfo(null);
-                startDebugging();
+                startDebugging(new ConnectionMetric());
                 if (_tcpDumpProcess != null) {
                     _captureStatus.setText("Capture in progress");
                 } else {
@@ -480,10 +508,7 @@ public class MainActivity extends Activity
     private ListenableFuture<Throwable> testConnectivity(ConnectionMetric connectionMetric)
     {
         final SettableFuture<Throwable> future = SettableFuture.create();
-        SettableFuture<ConnectionMetric> connectionFuture = NetworkClient
-            .connect(Config.DOOR_HOST, Config.DOOR_PORT, Config.USE_SECURE, Config.SOCKET_TIMEOUT,
-                Config.REQUEST_STRING, true, connectionMetric, Config.PROXY,
-                Config.INVALIDATE_SESSION);
+        ListenableFuture<ConnectionMetric> connectionFuture = connectToDoor(connectionMetric);
         Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>()
         {
             @Override

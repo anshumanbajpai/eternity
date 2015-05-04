@@ -5,8 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.util.Log;
 
+import to.talk.eternity.Log;
 import to.talk.eternity.R;
 
 public class NotificationContent

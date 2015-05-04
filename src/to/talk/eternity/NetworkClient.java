@@ -1,7 +1,5 @@
 package to.talk.eternity;
 
-import android.util.Log;
-
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.io.BufferedReader;
