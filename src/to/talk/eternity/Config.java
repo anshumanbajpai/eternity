@@ -5,7 +5,7 @@ import java.net.Proxy;
 public class Config
 {
 
-    public static final String DOOR_HOST = "doormobile.handler.talk.to";
+    public static final String DOOR_HOST = "52.1.3.29";
     public static final int DOOR_PORT = 443;
     public static final boolean USE_SECURE = true;
     public static final int SOCKET_TIMEOUT = 6000;
