@@ -86,6 +86,9 @@ public class Log
                     File logFile = getOrCreateLogFile();
                     PrintWriter pw = new PrintWriter(
                         new BufferedWriter(new FileWriter(logFile, true)));
+
+                    SimpleDateFormat sdf = new SimpleDateFormat("dd-MM HH:mm:ss:SSS");
+                    pw.append(sdf.format(new Date()) + ": ");
                     t.printStackTrace(pw);
                     pw.close();
                 } catch (IOException e) {

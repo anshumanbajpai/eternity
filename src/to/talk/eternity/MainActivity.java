@@ -51,7 +51,6 @@ public class MainActivity extends Activity
 
     private final static String LOGTAG = MainActivity.class.getSimpleName();
     private final static String WHATSAPP_PACKAGE = "com.whatsapp";
-    private static final String NETWORK_LOGS_FILENAME = "network.log";
     private final static String ETERNITY_DIR = "/sdcard/eternity/";
     private final ScheduledExecutorService _executor = Executors.newSingleThreadScheduledExecutor();
     private Button _startCaptureBtn;
@@ -177,7 +176,7 @@ public class MainActivity extends Activity
                 _stopCaptureBtn.setEnabled(true);
             }
         });
-        Log.d(LOGTAG, "Trying connecting with door");
+        Log.d(LOGTAG, "Connecting with door (2nd time)");
         ListenableFuture<ConnectionMetric> connectionFuture = connectToDoor(connectionMetric);
         Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>()
         {
@@ -508,6 +507,8 @@ public class MainActivity extends Activity
     private ListenableFuture<Throwable> testConnectivity(ConnectionMetric connectionMetric)
     {
         final SettableFuture<Throwable> future = SettableFuture.create();
+        Log.d(LOGTAG, "testConnectivity");
+        Log.d(LOGTAG, "Connecting with door (1st time)");
         ListenableFuture<ConnectionMetric> connectionFuture = connectToDoor(connectionMetric);
         Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>()
         {
