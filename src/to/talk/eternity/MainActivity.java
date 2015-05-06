@@ -509,6 +509,7 @@ public class MainActivity extends Activity
         final SettableFuture<Throwable> future = SettableFuture.create();
         Log.d(LOGTAG, "testConnectivity");
         Log.d(LOGTAG, "Connecting with door (1st time)");
+        final long connectRequestedTime = System.currentTimeMillis();
         ListenableFuture<ConnectionMetric> connectionFuture = connectToDoor(connectionMetric);
         Futures.addCallback(connectionFuture, new FutureCallback<ConnectionMetric>()
         {
@@ -523,9 +524,17 @@ public class MainActivity extends Activity
             public void onFailure(final Throwable throwable)
             {
 
-                Log.d(LOGTAG, "Door connection failed : " + throwable);
+                Log.d(LOGTAG, "Door connection failed after " +
+                              (System.currentTimeMillis() - connectRequestedTime) +
+                              " milliseconds with error: " + throwable);
                 Log.d(LOGTAG, "N/w status : " + isConnected());
 
+                if (throwable.getMessage().contains("java.net.SocketTimeoutException") ||
+                    throwable.getMessage().contains("java.net.ConnectException")) {
+                    Log.d(LOGTAG, "Door connection failure was due to network timeout, ignored");
+                    future.set(null);
+                    return;
+                }
                 if (isConnected()) {
 
                     Futures.addCallback(makeHttpRequest(), new FutureCallback<Void>()
