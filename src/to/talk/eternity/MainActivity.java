@@ -530,7 +530,8 @@ public class MainActivity extends Activity
                 Log.d(LOGTAG, "N/w status : " + isConnected());
 
                 if (throwable.getMessage().contains("java.net.SocketTimeoutException") ||
-                    throwable.getMessage().contains("java.net.ConnectException")) {
+                    throwable.getMessage().contains("java.net.ConnectException") ||
+                    throwable.getMessage().contains("Connection timed out")) {
                     Log.d(LOGTAG, "Door connection failure was due to network timeout, ignored");
                     future.set(null);
                     return;
